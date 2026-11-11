@@ -61,10 +61,28 @@ jobs:
                           f.write(content)
           PY
 
-      - name: Build APK
+            - name: Build APK
         run: |
+          cat > "$GITHUB_WORKSPACE/force-jvm.gradle" <<'EOF'
+          allprojects {
+              tasks.withType(org.gradle.api.tasks.compile.JavaCompile).configureEach {
+                  sourceCompatibility = '17'
+                  targetCompatibility = '17'
+              }
+
+              tasks.configureEach {
+                  if (name.toLowerCase().contains('kotlin')) {
+                      try {
+                          kotlinOptions.jvmTarget = '17'
+                      } catch (Exception ignored) {
+                      }
+                  }
+              }
+          }
+          EOF
+
           cd "$PROJECT_DIR"
-          gradle assembleDebug
+          gradle -I "$GITHUB_WORKSPACE/force-jvm.gradle" assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
