@@ -42,25 +42,22 @@ jobs:
           fi
           PROJECT_DIR=$(dirname "$SETTINGS")
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-
       - name: Fix JVM compatibility
         run: |
           cat > "$GITHUB_WORKSPACE/force-jvm.gradle" <<'EOF'
-          allprojects {
-              tasks.withType(org.gradle.api.tasks.compile.JavaCompile).configureEach {
-                  sourceCompatibility = '17'
-                  targetCompatibility = '17'
-              }
-
-              tasks.configureEach {
-                  if (name.toLowerCase().contains('kotlin') && hasProperty('kotlinOptions')) {
-                      kotlinOptions.jvmTarget = '17'
+          gradle.taskGraph.whenReady {
+              allprojects.each { project ->
+                  project.tasks.withType(
+                      org.gradle.api.tasks.compile.JavaCompile
+                  ).each { task ->
+                      task.sourceCompatibility = '17'
+                      task.targetCompatibility = '17'
                   }
               }
           }
           EOF
 
-      - name: Build APK
+            - name: Build APK
         run: |
           cd "$PROJECT_DIR"
           gradle -I "$GITHUB_WORKSPACE/force-jvm.gradle" assembleDebug
