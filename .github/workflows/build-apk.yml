@@ -28,7 +28,7 @@ jobs:
       - name: Extract project
         run: |
           mkdir extracted
-          ZIP_FILE=$(find . -maxdepth 1 -name '*.zip' | head -n 1)
+          ZIP_FILE=$(find . -maxdepth 1 -name '*_FIXED.zip' | head -n 1)
           if [ -z "$ZIP_FILE" ]; then
             echo "Project ZIP file not found"
             exit 1
