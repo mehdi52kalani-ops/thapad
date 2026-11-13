@@ -30,38 +30,20 @@ jobs:
         run: |
           mkdir extracted
           ZIP_FILE=$(find . -maxdepth 1 -name '*.zip' | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "Project ZIP file not found"
+            exit 1
+          fi
           unzip -q "$ZIP_FILE" -d extracted
           SETTINGS=$(find extracted -type f \( -name settings.gradle -o -name settings.gradle.kts \) | head -n 1)
+          if [ -z "$SETTINGS" ]; then
+            echo "Gradle settings file not found"
+            exit 1
+          fi
           PROJECT_DIR=$(dirname "$SETTINGS")
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - name: Fix JVM compatibility
-        run: |
-          python3 - <<'PY'
-          import os
-          import re
-
-          root = os.environ["GITHUB_WORKSPACE"]
-          for base, dirs, files in os.walk(root + "/extracted"):
-              for name in files:
-                  if name.endswith((".gradle", ".gradle.kts")):
-                      path = os.path.join(base, name)
-                      with open(path, encoding="utf-8") as f:
-                          content = f.read()
-                      content = content.replace(
-                          "JavaVersion.VERSION_1_8",
-                          "JavaVersion.VERSION_17"
-                      )
-                      content = re.sub(
-                          r"(jvmTarget\s*=\s*)['\"]1\.8['\"]",
-                          r"\1'17'",
-                          content
-                      )
-                      with open(path, "w", encoding="utf-8") as f:
-                          f.write(content)
-          PY
-
-            -       - name: Build APK
         run: |
           cat > "$GITHUB_WORKSPACE/force-jvm.gradle" <<'EOF'
           allprojects {
@@ -69,11 +51,20 @@ jobs:
                   sourceCompatibility = '17'
                   targetCompatibility = '17'
               }
+
+              tasks.configureEach {
+                  if (name.toLowerCase().contains('kotlin') && hasProperty('kotlinOptions')) {
+                      kotlinOptions.jvmTarget = '17'
+                  }
+              }
           }
           EOF
 
+      - name: Build APK
+        run: |
           cd "$PROJECT_DIR"
           gradle -I "$GITHUB_WORKSPACE/force-jvm.gradle" assembleDebug
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
